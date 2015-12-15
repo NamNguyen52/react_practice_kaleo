@@ -11,11 +11,36 @@ var SearchContainer = React.createClass({
 			text: '',
 			results: [],
 			page: 1,
+			totalPages: 0,
 			filterByViews: false,
 			filterByAnswers: false
 		}
 	},
 	render: function() {
+
+		// classes to be applied conditionally - 'classNames' method is provided globally by the classnames library
+		var showHide = classNames({
+			'hidden' : (this.state.results.length === 0)
+		});
+		var filterByViewsSelected = classNames({
+			'btn btn-success' : this.state.filterByViews,
+			'btn btn-primary' : !this.state.filterByViews
+		});
+		var filterByAnswersSelected = classNames({
+			'btn btn-success' : this.state.filterByAnswers,
+			'btn btn-primary' : !this.state.filterByAnswers
+		});
+		var nextButtonClasses = classNames({
+			'hidden' : (this.state.page === this.state.totalPages),
+		})
+		var prevButtonClasses = classNames({
+			'hidden' : (this.state.page === 1),
+		})
+		var filterBar = classNames({
+			'btn-group btn-group-justified filter-buttons' : true,
+			'hidden' : (this.state.results.length === 0)
+		})
+
 		return 	<div>
 					<div className="jumbotron">
 					  	<h1 className="text-center">Welcome</h1>
@@ -34,24 +59,25 @@ var SearchContainer = React.createClass({
 						    </div>
 						</div>
 					</div>
-					<div className="btn-group btn-group-justified filter-buttons" role="group">
+					<div className={ filterBar } role="group">
 					  	<div className="btn-group" role="group">
-					    	<button type="button" className="btn btn-success" onClick={ this.handleFilterByViews }>Sort by Views</button>
+					    	<button type="button" className={ filterByViewsSelected } onClick={ this.handleFilterByViews }>Sort by Views</button>
 					  	</div>
 					  	<div className="btn-group" role="group">
-					    	<button type="button" className="btn btn-primary" onClick={ this.handleFilterByAnswers }>Sort by Answer Count</button>
+					    	<button type="button" className={ filterByAnswersSelected } onClick={ this.handleFilterByAnswers }>Sort by Answer Count</button>
 					  	</div>
 					  	<div className="btn-group" role="group">
 					    	<button type="button" className="btn btn-info">Sort by Tag</button>
 					 	</div>
 					</div>
 					<SearchResultsPanel results={ this.state.results }></SearchResultsPanel>
-					<nav>
+					<nav className={ showHide }>
+						<div className="text-center">Page { this.state.page } of {this.state.totalPages }</div>
 						<ul className="pager">
-						  	<li className="previous" onClick={this.handlePagePrev}>
+						  	<li className={ prevButtonClasses } onClick={this.handlePagePrev}>
 						  		<a href="#"><span aria-hidden="true">&larr;</span> Previous</a>
 						  	</li>
-						  	<li className="next" onClick={this.handlePageNext}>
+						  	<li className={ nextButtonClasses } onClick={this.handlePageNext}>
 						  		<a href="#">Next <span aria-hidden="true">&rarr;</span></a>
 					  		</li>
 						</ul>
@@ -62,8 +88,8 @@ var SearchContainer = React.createClass({
 	handleInputChange: function(e) {
 		console.log(e.target.value);
 		e.preventDefault();
-		if (e.target.value.length === 0) {
-			this.setState({text: e.target.value, results: [] });
+		if (e.target.value === '') {
+			this.setState({text: '', filterByAnswers: false, filterByViews: false, results: [] });
 		} else {
 			this.setState({text: e.target.value});
 			this.searchApi(e.target.value, this.state.page);
@@ -99,6 +125,8 @@ var SearchContainer = React.createClass({
 		var searchClean = encodeURI(resourceUrl + searchInput +'&page=' + page);
 		console.log(searchClean);
 		$.get(resourceUrl + searchClean, function(data){
+			self.setState({totalPages: data.meta.total_pages});
+			console.log(data.meta.total_pages);
 			if (self.state.filterByViews) {
 				var orderedByViewsArr = self.sortByViews(data);
 				self.filterData(orderedByViewsArr);
@@ -125,21 +153,15 @@ var SearchContainer = React.createClass({
 		this.setState({results: tempArr});
 	},
 	sortByViews: function(searchResults) {
-		var tempArr = searchResults.collection.sort(function(a,b){
-			return b.views_count - a.views_count;
-		});
+		var tempArr = searchResults.collection.sort((a,b) => b.views_count - a.views_count);
 		return tempArr;
 	},
 	sortByAnswers: function(searchResults) {
-		var tempArr = searchResults.collection.sort(function(a,b){
-			return b.answers_count - a.answers_count;
-		});
+		var tempArr = searchResults.collection.sort((a,b) => b.answers_count - a.answers_count );
 		return tempArr;
 	},
 	standardPrep: function(searchResults) {
-		var tempArr = searchResults.collection.map(function(a){
-			return a;
-		});
+		var tempArr = searchResults.collection.map((a) => a);
 		return tempArr;
 	}
 });
@@ -149,18 +171,18 @@ var SearchResultsPanel = React.createClass({
 	render: function() {
 		return 	(<div className="list-group">
 					{
-						this.props.results.map(function(result, i) {
-							return 	<a href={ result.answerUrl } target="_blank" className="list-group-item" key={i}>
-							    		<h4 className="list-group-item-heading">{ result.title }</h4>
-							    		<span className="badge">{ result.views } Views</span>
-							    		<p className="list-group-item-text">Answer Counts: { result.numOfAnswers }</p>
-							    		<p className="list-group-item-text">Tags: {
-							    			result.tags.map(function(tag, i){
-							    				return <span className="label label-info tag-label" key={i}>{ tag }</span>
-							    			})
-							    		}</p>
-									</a>
-						})
+						this.props.results.map((result, i) =>
+					 		<a href={ result.answerUrl } target="_blank" className="list-group-item" key={i}>
+					    		<h4 className="list-group-item-heading">{ result.title }</h4>
+					    		<span className="badge">{ result.views } Views</span>
+					    		<p className="list-group-item-text">Answer Counts: { result.numOfAnswers }</p>
+					    		<p className="list-group-item-text">Tags: {
+					    			result.tags.map((tag, i) =>
+					    				<span className="label label-info tag-label" key={i}>{ tag }</span>
+					    			)
+					    		}</p>
+							</a>
+						)
 					}
 				</div>)
 	}
